@@ -1,0 +1,45 @@
+<mxGraphModel dx="1270" dy="2137" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
+  <root>
+    <mxCell id="0" />
+    <mxCell id="1" parent="0" />
+    <mxCell id="OH7UvLXYV5rfe9vmDYvM-7" value="abcd 9" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" parent="1" source="OH7UvLXYV5rfe9vmDYvM-2" target="OH7UvLXYV5rfe9vmDYvM-5" edge="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <object label="" placeholders="1" INTType="Filter" id="OH7UvLXYV5rfe9vmDYvM-2">
+      <mxCell style="shape=image;image=https://github.com/obarafernando/intuitive_local_tool/blob/main/operators_images/Filter.png?raw=true;resizable=0;movable=1;rotatable=1" parent="1" vertex="1">
+        <mxGeometry x="340" y="180" width="100" height="100" as="geometry" />
+      </mxCell>
+    </object>
+    <object label="%AtributoAgrupamento%&#xa;%AtributoSoma%&#xa;%CondicaoFiltro%" AtributoAgrupamento="PKey" AtributoSoma="" CondicaoFiltro="" placeholders="1" INTType="SumGroup" id="OH7UvLXYV5rfe9vmDYvM-3">
+      <mxCell style="shape=image;image=https://github.com/obarafernando/intuitive_local_tool/blob/main/operators_images/SumGroup.png?raw=true;resizable=0;movable=1;rotatable=1" parent="1" vertex="1">
+        <mxGeometry x="340" y="620" width="100" height="100" as="geometry" />
+      </mxCell>
+    </object>
+    <mxCell id="OH7UvLXYV5rfe9vmDYvM-6" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" parent="1" source="OH7UvLXYV5rfe9vmDYvM-4" target="OH7UvLXYV5rfe9vmDYvM-2" edge="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <object label="" placeholders="1" INTType="DataSet" id="OH7UvLXYV5rfe9vmDYvM-4">
+      <mxCell style="shape=image;image=https://github.com/obarafernando/intuitive_local_tool/blob/main/operators_images/DataSet.png?raw=true;resizable=0;movable=1;rotatable=1" parent="1" vertex="1">
+        <mxGeometry x="340" y="-10" width="100" height="100" as="geometry" />
+      </mxCell>
+    </object>
+    <mxCell id="OH7UvLXYV5rfe9vmDYvM-8" value="lalala" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" parent="1" source="OH7UvLXYV5rfe9vmDYvM-5" target="OH7UvLXYV5rfe9vmDYvM-3" edge="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="Gro33d1OudPlVnRstcl8-1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="OH7UvLXYV5rfe9vmDYvM-5">
+      <mxGeometry relative="1" as="geometry">
+        <mxPoint x="660" y="470" as="targetPoint" />
+      </mxGeometry>
+    </mxCell>
+    <object label="" placeholders="1" INTType="Filter" id="OH7UvLXYV5rfe9vmDYvM-5">
+      <mxCell style="shape=image;image=https://github.com/obarafernando/intuitive_local_tool/blob/main/operators_images/Filter.png?raw=true;resizable=0;movable=1;rotatable=1" parent="1" vertex="1">
+        <mxGeometry x="340" y="420" width="100" height="100" as="geometry" />
+      </mxCell>
+    </object>
+    <object label="" placeholders="1" INTType="DataWarehouse" id="txwBLXqo4lUnO4el-qYc-1">
+      <mxCell style="shape=image;image=https://github.com/obarafernando/intuitive_local_tool/blob/main/operators_images/DW.png?raw=true;resizable=0;movable=1;rotatable=1" parent="1" vertex="1">
+        <mxGeometry x="340" y="830" width="100" height="100" as="geometry" />
+      </mxCell>
+    </object>
+  </root>
+</mxGraphModel>
