@@ -192,7 +192,6 @@ def readXML(filename):
 
     for object in objects:
         constructor = globals()[object.attrib['INTType']]
-        print(object.attrib['parametros'])
         instance = constructor(object.attrib['id'], object.attrib['parametros'], object.attrib['INTType'], object.attrib['entradas'], object.attrib['saidas'])
         operadores.append(instance)
 
