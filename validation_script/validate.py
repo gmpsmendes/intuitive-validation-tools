@@ -1,9 +1,10 @@
 import xml.etree.ElementTree as ET
 from pyparsing import *
+import ast
 
 integer = pyparsing_common.signed_integer
 varname = pyparsing_common.identifier
-FILENAME = 'sample_diagram_error.xml'
+FILENAME = 'untitled.ows'
 
 arith_expr = infixNotation(integer | varname,
     [
@@ -120,7 +121,7 @@ def readXML(filename):
     tree.write('modified.xml')
 
     for child in root:
-        if child.tag == 'object':
+        if child.tag in ('object'):
             parametros = {}
             for key in child.attrib.keys():
                 if key not in ('label', 'placeholders', 'INTType', 'id'):
@@ -152,11 +153,87 @@ def readXML(filename):
         instance = constructor(object.attrib['id'], object.attrib['parametros'], object.attrib['INTType'], object.attrib['entradas'], object.attrib['saidas'])
         operadores.append(instance)
 
-if __name__ == "__main__":
-    readXML(FILENAME)
-    for operador in operadores:
-        operador.validate()
-    for operador in operadores:
-        for error in operador.errorList:
-           error.markXML()
+def readXML_orange3(filename):
+    objects = []
+    connections = []
+    connections_ids = {'id':[], 'source':[], 'target':[]}
+    values_ids = {'id':[],'value':[]}
+    tree = ET.parse(filename)
+    nodes = tree.getroot()[0]
+    links = tree.getroot()[1]
+    node_properties = tree.getroot()[4]
 
+    tree.write('modified.xml')
+
+    for link in links:
+        if 'source_node_id' in link.attrib:
+            connections_ids['id'].append(link.attrib['id'])
+            connections_ids['source'].append(link.attrib['source_node_id'])
+            connections_ids['target'].append(link.attrib['sink_node_id'])
+
+    properties_text = {}
+    for properties in node_properties:
+        if properties.text[0] == '{':
+            properties_text = ast.literal_eval(properties.text)
+            if 'filter' in properties_text:
+                values_ids['id'].append(properties.attrib['node_id'])
+                values_ids['value'].append(properties_text['filter'])
+
+    for node in nodes:
+        if node.tag in ('node'):
+            parametros_node = {}
+            for key in node.attrib.keys():
+                if key not in ('name', 'id','qualified_name','project_name','version','title','position'):
+                    parametros_node[key] = node.attrib[key]
+            node.attrib['saidas'] = []
+            node.attrib['entradas'] = []
+            node.attrib['parametros'] = parametros_node
+            objects.append(node)
+        if node.attrib['id'] in values_ids['id']:
+            index = (list(values_ids['id']).index(node.attrib['id']))
+            value = values_ids['value'][index]
+            node.attrib['value'] = value
+        if node.attrib['id'] in connections_ids['id']:
+            index = (list(connections_ids['id']).index(node.attrib['id']))
+            source = connections_ids['source'][index]
+            target = connections_ids['target'][index]
+            node.attrib['source'] = source
+            node.attrib['target'] = target
+            connections.append(node)
+
+    for object in objects:
+        for connection in connections:
+            if connection.attrib['source'] == object.attrib['id']:
+                if 'value' in connection.attrib:
+                    value = connection.attrib['value']
+                else:
+                    value = ''
+                object.attrib['saidas'].append(Relationship(connection.attrib['id'], value))
+            if connection.attrib.get('target', '') == object.attrib['id']:
+                if 'value' in connection.attrib:
+                    value = connection.attrib['value']
+                else:
+                    value = ''
+                object.attrib['entradas'].append(Relationship(connection.attrib['id'], value))
+
+    for object in objects:
+        constructor = globals()[object.attrib['name']]
+        instance = constructor(object.attrib['id'], object.attrib['parametros'], object.attrib['name'], object.attrib['entradas'], object.attrib['saidas'])
+        operadores.append(instance)
+
+if __name__ == "__main__":
+    file_type = input("Enter the file origin (orange3 or drawio: )")
+    if file_type == 'drawio':
+        readXML(FILENAME)
+        for operador in operadores:
+            operador.validate()
+        for operador in operadores:
+            for error in operador.errorList:
+                error.markXML()
+    else:
+        readXML_orange3(FILENAME)
+        for operador in operadores:
+            operador.validate()
+        for operador in operadores:
+            for error in operador.errorList:
+                error.markXML()
