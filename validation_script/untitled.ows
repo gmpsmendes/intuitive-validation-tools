@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <scheme description="" title="" version="2.0">
 	<nodes>
-		<node id="0" name="Filter" position="(150, 150)" project_name="Demo" qualified_name="orangedemo.IntuitiveFilter.Intfilter" title="Intuitive Filter" version="" />
+		<node id="0" name="FilterBase" position="(150, 150)" project_name="Demo" qualified_name="orangedemo.IntuitiveFilter.Intfilter" title="Intuitive Filter" version="" />
 		<node id="1" name="Filter" position="(300, 150)" project_name="Demo" qualified_name="orangedemo.filter_read.Print" title="Filter Condition" version="" />
 		<node id="2" name="DataMart" position="(14.0, 158.0)" project_name="Orange3" qualified_name="Orange.widgets.data.owfile.OWFile" title="File" version="" />
 	</nodes>

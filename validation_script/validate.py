@@ -18,8 +18,7 @@ arith_expr = infixNotation(integer | varname,
     ])
 
 operatorTypes_drawio = ['DataWarehouse', 'DataMart', 'DataLake', 'DataSet', 'TempDataSet', 'FailDataSet', 'Filter', 'SumGroup']
-operatorTypes_orange3 = operatorTypes_drawio
-operatorTypes_orange3.append('FilterBase')
+operatorTypes_orange3 = operatorTypes_drawio + ['FilterBase']
 operadores = []
 
 class IntuitiveError():
@@ -58,18 +57,21 @@ class Relationship:
         return arith_expr.runTests(self.condicao, printResults = False)[0] and self.target is not None
 
 class Operator:
-    def __init__(self, id, parametros, tipo, entradas, saidas):
+    def __init__(self, id, parametros, tipo, entradas, saidas, tool):
         self.id = id
         self.parametros = parametros
         self.tipo = tipo
         self.entradas = entradas
         self.saidas = saidas
         self.errorList = []
+        self.tool = tool
 
     def validate(self):
-        if self.tipo not in operatorTypes:
-            self.errorList.append(IntuitiveError(self.id, 'Operador Desconhecido'))
-            return False
+        if self.tool == 'orange3' and self.tipo in operatorTypes_orange3 or self.tool == 'drawio' and self.tipo in operatorTypes_drawio:
+            return True
+        self.errorList.append(IntuitiveError(self.id, 'Operador Desconhecido'))
+        return False
+
 
 class OperadorArmazenamento(Operator):
     def validate(self):
@@ -96,6 +98,14 @@ class TempDataSet(OperadorArmazenamento):
 
 class FailDataSet(OperadorArmazenamento):
     pass
+
+class FilterBase(Operator):
+    def validate(self):
+        if len(self.entradas) == 1:
+            return True
+        else:
+            self.errorList.append(IntuitiveError(self.id, 'Entrada do Operador'))
+            return False
 
 class Filter(Operator):
     def validate(self):
@@ -173,7 +183,7 @@ def create_objects(objects,connections,tool):
                 value = connection.attrib.get('value', '')
                 object.attrib['entradas'].append(Relationship(connection.attrib['id'], value, connection.attrib.get('source'), object.attrib['id']))
         constructor = globals()[object.attrib[op_field]]
-        instance = constructor(object.attrib['id'], object.attrib['parametros'], object.attrib[op_field], object.attrib['entradas'], object.attrib['saidas'])
+        instance = constructor(object.attrib['id'], object.attrib['parametros'], object.attrib[op_field], object.attrib['entradas'], object.attrib['saidas'],tool)
         operadores.append(instance)
 
 def readXML_drawio(filename):
@@ -264,7 +274,12 @@ def orange3(file = ''):
     MODIFIED_FILENAME = f'{os.path.splitext(file)[0]}_modified.xml'
     readXML_orange3(file)
     for operador in operadores:
-        print(operador.id,operador.validate())
+        print(operador.id,operador.validate(),operador.parametros)
+        for entrada in operador.entradas:
+            print(entrada.condicao)
+        for saida in operador.saidas:
+            print(saida.condicao)
+
         # for error in operador.errorList:
             # error.markXML()
     # addErrorList()
