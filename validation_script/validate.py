@@ -1,10 +1,12 @@
+from pdb import main
 import xml.etree.ElementTree as ET
 from pyparsing import *
+import argh
+import os
 
 integer = pyparsing_common.signed_integer
 varname = pyparsing_common.identifier
-FILENAME = 'validation_script/diagram_samples_drawio/sample_diagram.xml'
-MODIFIED_FILENAME = 'validation_script/modified.xml'
+MODIFIED_FILENAME = 'modified.xml'
 globalErrorList = []
 
 arith_expr = infixNotation(integer | varname,
@@ -19,11 +21,10 @@ operadores = []
 
 class IntuitiveError():
     def __init__(self, id, errorType, idOpSource = None, idOpTarget = None):
-       self.id = id
-       self.errorType = errorType
-       if errorType == 'Condição Relacionamento':
-           self.idOpSource = idOpSource
-           self.idOpTarget = idOpTarget
+        self.id = id
+        self.errorType = errorType
+        self.idOpSource = idOpSource
+        self.idOpTarget = idOpTarget
 
     def markXML(self):
         tree = ET.parse(MODIFIED_FILENAME)
@@ -156,7 +157,7 @@ def addErrorList():
     tree.write(MODIFIED_FILENAME)
 
 
-def readXML(filename):
+def readXML_drawio(filename):
     objects = []
     connections = []
     tree = ET.parse(filename)
@@ -178,29 +179,34 @@ def readXML(filename):
     for object in objects:
         for connection in connections:
             if connection.attrib['source'] == object.attrib['id']:
-                if 'value' in connection.attrib:
-                    value = connection.attrib['value']
-                else:
-                    value = ''
+                value = connection.attrib.get('value', '')
                 object.attrib['saidas'].append(Relationship(connection.attrib['id'], value, object.attrib['id'], connection.attrib.get('target')))
             if connection.attrib.get('target', '') == object.attrib['id']:
-                if 'value' in connection.attrib:
-                    value = connection.attrib['value']
-                else:
-                    value = ''
-                object.attrib['entradas'].append(Relationship(connection.attrib['id'], value, connection.attrib['source'], object.attrib['id']))
-
-    for object in objects:
+                value = connection.attrib.get('value', '')
+                object.attrib['entradas'].append(Relationship(connection.attrib['id'], value, connection.attrib.get('source'), object.attrib['id']))
         constructor = globals()[object.attrib['INTType']]
         instance = constructor(object.attrib['id'], object.attrib['parametros'], object.attrib['INTType'], object.attrib['entradas'], object.attrib['saidas'])
         operadores.append(instance)
 
-if __name__ == "__main__":
-    readXML(FILENAME)
+@argh.arg('-f', '--file', type=str )
+def drawio (file = ''):
+    global MODIFIED_FILENAME
+    MODIFIED_FILENAME = f'{os.path.splitext(file)[0]}_modified.xml'
+    readXML_drawio(file)
     for operador in operadores:
-        operador.validate()
-    for operador in operadores:
-        for error in operador.errorList:
-           error.markXML()
+        for operador in operadores:
+            operador.validate()
+            for error in operador.errorList:
+                error.markXML()
     addErrorList()
 
+@argh.arg('-f', '--file', type=str)
+def orange3(file = ''):
+    pass
+
+parser = argh.ArghParser()
+parser.add_commands([drawio, orange3])
+
+
+if __name__ == '__main__':
+    parser.dispatch()
