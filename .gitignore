@@ -1,1 +1,4 @@
 *.xml
+*.ows
+validation_script/*.xml
+validation_script/*.ows

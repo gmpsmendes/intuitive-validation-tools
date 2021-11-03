@@ -3,6 +3,7 @@ import xml.etree.ElementTree as ET
 from pyparsing import *
 import argh
 import os
+import ast
 
 integer = pyparsing_common.signed_integer
 varname = pyparsing_common.identifier
@@ -16,7 +17,8 @@ arith_expr = infixNotation(integer | varname,
     (oneOf('+ - * /'), 2, opAssoc.LEFT),
     ])
 
-operatorTypes = ['DataWarehouse', 'DataMart', 'DataLake', 'DataSet', 'TempDataSet', 'FailDataSet', 'Filter', 'SumGroup']
+operatorTypes_drawio = ['DataWarehouse', 'DataMart', 'DataLake', 'DataSet', 'TempDataSet', 'FailDataSet', 'Filter', 'SumGroup']
+operatorTypes_orange3 = operatorTypes_drawio + ['FilterBase']
 operadores = []
 
 class IntuitiveError():
@@ -26,7 +28,7 @@ class IntuitiveError():
         self.idOpSource = idOpSource
         self.idOpTarget = idOpTarget
 
-    def markXML(self):
+    def markXML_drawio(self):
         tree = ET.parse(MODIFIED_FILENAME)
         root = tree.getroot()[0]
         for child in root:
@@ -55,18 +57,21 @@ class Relationship:
         return arith_expr.runTests(self.condicao, printResults = False)[0] and self.target is not None
 
 class Operator:
-    def __init__(self, id, parametros, tipo, entradas, saidas):
+    def __init__(self, id, parametros, tipo, entradas, saidas, tool):
         self.id = id
         self.parametros = parametros
         self.tipo = tipo
         self.entradas = entradas
         self.saidas = saidas
         self.errorList = []
+        self.tool = tool
 
     def validate(self):
-        if self.tipo not in operatorTypes:
-            self.errorList.append(IntuitiveError(self.id, 'Operador Desconhecido'))
-            return False
+        if self.tool == 'orange3' and self.tipo in operatorTypes_orange3 or self.tool == 'drawio' and self.tipo in operatorTypes_drawio:
+            return True
+        self.errorList.append(IntuitiveError(self.id, 'Operador Desconhecido'))
+        return False
+
 
 class OperadorArmazenamento(Operator):
     def validate(self):
@@ -93,6 +98,14 @@ class TempDataSet(OperadorArmazenamento):
 
 class FailDataSet(OperadorArmazenamento):
     pass
+
+class FilterBase(Operator):
+    def validate(self):
+        if len(self.entradas) == 1:
+            return True
+        else:
+            self.errorList.append(IntuitiveError(self.id, 'Entrada do Operador'))
+            return False
 
 class Filter(Operator):
     def validate(self):
@@ -156,6 +169,22 @@ def addErrorList():
     treeRoot.append(errorList)
     tree.write(MODIFIED_FILENAME)
 
+def create_objects(objects,connections,tool):
+    if tool == 'orange3':
+        op_field = 'name'
+    elif tool == 'drawio':
+        op_field = 'INTType'
+    for object in objects:
+        for connection in connections:
+            if connection.attrib['source'] == object.attrib['id']:
+                value = connection.attrib.get('value', '')
+                object.attrib['saidas'].append(Relationship(connection.attrib['id'], value, object.attrib['id'], connection.attrib.get('target')))
+            if connection.attrib.get('target', '') == object.attrib['id']:
+                value = connection.attrib.get('value', '')
+                object.attrib['entradas'].append(Relationship(connection.attrib['id'], value, connection.attrib.get('source'), object.attrib['id']))
+        constructor = globals()[object.attrib[op_field]]
+        instance = constructor(object.attrib['id'], object.attrib['parametros'], object.attrib[op_field], object.attrib['entradas'], object.attrib['saidas'],tool)
+        operadores.append(instance)
 
 def readXML_drawio(filename):
     objects = []
@@ -165,7 +194,7 @@ def readXML_drawio(filename):
     tree.write(MODIFIED_FILENAME)
 
     for child in root:
-        if child.tag == 'object':
+        if child.tag in ('object'):
             parametros = {}
             for key in child.attrib.keys():
                 if key not in ('label', 'placeholders', 'INTType', 'id') and child.attrib[key] != '':
@@ -176,17 +205,57 @@ def readXML_drawio(filename):
             objects.append(child)
         if 'source' in child.attrib:
             connections.append(child)
-    for object in objects:
-        for connection in connections:
-            if connection.attrib['source'] == object.attrib['id']:
-                value = connection.attrib.get('value', '')
-                object.attrib['saidas'].append(Relationship(connection.attrib['id'], value, object.attrib['id'], connection.attrib.get('target')))
-            if connection.attrib.get('target', '') == object.attrib['id']:
-                value = connection.attrib.get('value', '')
-                object.attrib['entradas'].append(Relationship(connection.attrib['id'], value, connection.attrib.get('source'), object.attrib['id']))
-        constructor = globals()[object.attrib['INTType']]
-        instance = constructor(object.attrib['id'], object.attrib['parametros'], object.attrib['INTType'], object.attrib['entradas'], object.attrib['saidas'])
-        operadores.append(instance)
+    create_objects(objects,connections,'drawio')
+
+def readXML_orange3(filename):
+    objects = []
+    connections = []
+    connections_ids = {'id':[], 'source':[], 'target':[]}
+    values_ids = {'id':[],'value':[]}
+    tree = ET.parse(filename)
+    nodes = tree.getroot()[0]
+    links = tree.getroot()[1]
+    node_properties = tree.getroot()[4]
+
+    tree.write(MODIFIED_FILENAME)
+
+    for link in links:
+        if 'source_node_id' in link.attrib:
+            connections_ids['id'].append(link.attrib['id'])
+            connections_ids['source'].append(link.attrib['source_node_id'])
+            connections_ids['target'].append(link.attrib['sink_node_id'])
+
+    properties_text = {}
+    for properties in node_properties:
+        if properties.text[0] == '{':
+            properties_text = ast.literal_eval(properties.text)
+            if 'filter' in properties_text:
+                values_ids['id'].append(properties.attrib['node_id'])
+                values_ids['value'].append(properties_text['filter'])
+
+    for node in nodes:
+        if node.tag in ('node'):
+            parametros_node = {}
+            for key in node.attrib.keys():
+                if key not in ('name', 'id','qualified_name','project_name','version','title','position'):
+                    parametros_node[key] = node.attrib[key]
+            node.attrib['saidas'] = []
+            node.attrib['entradas'] = []
+            node.attrib['parametros'] = parametros_node
+            objects.append(node)
+        if node.attrib['id'] in values_ids['id']:
+            index = (list(values_ids['id']).index(node.attrib['id']))
+            value = values_ids['value'][index]
+            node.attrib['value'] = value
+        if node.attrib['id'] in connections_ids['id']:
+            index = (list(connections_ids['id']).index(node.attrib['id']))
+            source = connections_ids['source'][index]
+            target = connections_ids['target'][index]
+            node.attrib['source'] = source
+            node.attrib['target'] = target
+            connections.append(node)
+
+    create_objects(objects,connections,'orange3')
 
 @argh.arg('-f', '--file', type=str )
 def drawio (file = ''):
@@ -194,15 +263,26 @@ def drawio (file = ''):
     MODIFIED_FILENAME = f'{os.path.splitext(file)[0]}_modified.xml'
     readXML_drawio(file)
     for operador in operadores:
-        for operador in operadores:
-            operador.validate()
-            for error in operador.errorList:
-                error.markXML()
+        operador.validate()
+        for error in operador.errorList:
+            error.markXML_drawio()
     addErrorList()
 
 @argh.arg('-f', '--file', type=str)
 def orange3(file = ''):
-    pass
+    global MODIFIED_FILENAME
+    MODIFIED_FILENAME = f'{os.path.splitext(file)[0]}_modified.xml'
+    readXML_orange3(file)
+    for operador in operadores:
+        print(operador.id,operador.validate(),operador.parametros)
+        for entrada in operador.entradas:
+            print(entrada.condicao)
+        for saida in operador.saidas:
+            print(saida.condicao)
+
+        # for error in operador.errorList:
+            # error.markXML()
+    # addErrorList()
 
 parser = argh.ArghParser()
 parser.add_commands([drawio, orange3])
