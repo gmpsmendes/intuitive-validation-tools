@@ -1,4 +1,3 @@
-from pdb import main
 import xml.etree.ElementTree as ET
 from pyparsing import *
 import argh
