@@ -62,7 +62,7 @@ class Relationship:
         return arith_expr.runTests(self.condicao, printResults = False)[0] and self.target is not None and (self.condicao == '' or len(self.condicao.split(' '))>1)
 
 class Operator:
-    def __init__(self, id, parametros, tipo, entradas, saidas, tool):
+    def __init__(self, id, parametros, tipo, entradas, saidas, tool, title = None):
         self.id = id
         self.parametros = parametros
         self.tipo = tipo
@@ -70,6 +70,7 @@ class Operator:
         self.saidas = saidas
         self.errorList = []
         self.tool = tool
+        self.title = title
 
     def validate(self):
         if self.tool == 'orange3' and self.tipo in operatorTypes_orange3 or self.tool == 'drawio' and self.tipo in operatorTypes_drawio:
@@ -166,6 +167,11 @@ def getIntTypeById(id):
         if operador.id == id:
             return operador.tipo
 
+def getTitleById(id):
+    for operador in operadores:
+        if operador.id == id:
+            return operador.title
+
 def addErrorList(tool):
     uniqueErrorList = []
     for i in globalErrorList:
@@ -215,9 +221,9 @@ def addErrorList(tool):
         message = '<b><font style="font-size: 15px">Erros:</font></b><br><br>'
         for error in uniqueErrorList:
             if error.errorType == 'Condição Relacionamento':
-                message += f'Erro na condição do relacionamento entre os operadores {getIntTypeById(error.idOpSource)} (id: {error.idOpSource}) e {getIntTypeById(error.idOpTarget)} (id: {error.idOpTarget})<br><br>'
+                message += f'Erro na condição do relacionamento entre os operadores {getIntTypeById(error.idOpSource)} (id: {error.idOpSource} ({getTitleById(error.idOpSource)}))  e {getIntTypeById(error.idOpTarget)} (id: {error.idOpTarget} ({getTitleById(error.idOpTarget)}))<br><br>'
             else:
-                message += f'Erro {error.errorType} no operador {getIntTypeById(error.id)} (id:{error.id})<br><br>'
+                message += f'Erro {error.errorType} no operador {getIntTypeById(error.id)} (id:{error.id} ({getTitleById(error.id)}))<br><br>'
         errorList.text = message
         indent(treeRoot)
         treeRoot.append(errorList)
@@ -238,7 +244,7 @@ def create_objects(objects,connections,tool):
                 value = connection.attrib.get('value', '')
                 object.attrib['entradas'].append(Relationship(connection.attrib['id'], value, connection.attrib.get('source'), object.attrib['id']))
         constructor = globals()[object.attrib[op_field]]
-        instance = constructor(object.attrib['id'], object.attrib['parametros'], object.attrib[op_field], object.attrib['entradas'], object.attrib['saidas'],tool)
+        instance = constructor(object.attrib['id'], object.attrib['parametros'], object.attrib[op_field], object.attrib['entradas'], object.attrib['saidas'],tool, object.attrib.get('title'))
         operadores.append(instance)
 
 def readXML_drawio(filename):
