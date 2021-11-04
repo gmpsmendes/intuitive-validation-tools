@@ -18,8 +18,9 @@ arith_expr = infixNotation(integer | varname,
     ])
 
 operatorTypes_drawio = ['DataWarehouse', 'DataMart', 'DataLake', 'DataSet', 'TempDataSet', 'FailDataSet', 'Filter', 'SumGroup']
-operatorTypes_orange3 = operatorTypes_drawio + ['FilterBase']
+operatorTypes_orange3 = operatorTypes_drawio + ['FilterOrange3','FilterConditionOrange3']
 operadores = []
+
 
 class IntuitiveError():
     def __init__(self, id, errorType, idOpSource = None, idOpTarget = None):
@@ -28,18 +29,23 @@ class IntuitiveError():
         self.idOpSource = idOpSource
         self.idOpTarget = idOpTarget
 
-    def markXML_drawio(self):
+    def markXML(self, tool):
         tree = ET.parse(MODIFIED_FILENAME)
-        root = tree.getroot()[0]
-        for child in root:
-            if child.attrib['id'] == self.id:
-                if self.errorType in ('Operador Desconhecido', 'Atributo do Operador', 'Entrada e Saída do Operador'):
-                    for mxcell in child:
-                        mxcell.set('style', f"{mxcell.get('style')};imageBorder=#FF0000;strokeWidth=4;")
-                elif self.errorType == 'Condição Relacionamento':
-                    child.set('style', f"{child.get('style')};strokeColor=#FF0000;strokeWidth=4;")
-        globalErrorList.append(self)
-        tree.write(MODIFIED_FILENAME)
+        if tool == 'drawio':
+            root = tree.getroot()[0]
+            for child in root:
+                if child.attrib['id'] == self.id:
+                    if self.errorType in ('Operador Desconhecido', 'Atributo do Operador', 'Entrada e Saída do Operador'):
+                        for mxcell in child:
+                            mxcell.set('style', f"{mxcell.get('style')};imageBorder=#FF0000;strokeWidth=4;")
+                    elif self.errorType == 'Condição Relacionamento':
+                        child.set('style', f"{child.get('style')};strokeColor=#FF0000;strokeWidth=4;")
+            globalErrorList.append(self)
+            tree.write(MODIFIED_FILENAME)
+        elif tool == 'orange3':
+            globalErrorList.append(self)
+            tree.write(MODIFIED_FILENAME)
+
 
 class Relationship:
     def __init__(self, id, condicao, source, target = None):
@@ -99,13 +105,26 @@ class TempDataSet(OperadorArmazenamento):
 class FailDataSet(OperadorArmazenamento):
     pass
 
-class FilterBase(Operator):
+class FilterOrange3(Operator):
     def validate(self):
-        if len(self.entradas) == 1:
+        if len(self.entradas) == 1 and len (self.saidas) >=1:
             return True
         else:
-            self.errorList.append(IntuitiveError(self.id, 'Entrada do Operador'))
+            self.errorList.append(IntuitiveError(self.id, 'Entrada do Operador e Saída do Operador'))
             return False
+
+class FilterConditionOrange3(Operator):
+    def validate(self):
+        if len(self.entradas) == 1 and len(self.saidas) == 1:
+            for saida in self.saidas:
+                if not saida.validarCondicao():
+                    self.errorList.append(IntuitiveError(saida.id, 'Condição Relacionamento', saida.source, saida.target))
+            for entrada in self.entradas:
+                if not entrada.validarCondicao():
+                    self.errorList.append(IntuitiveError(entrada.id, 'Condição Relacionamento', entrada.source, entrada.target))
+        else:
+            self.errorList.append(IntuitiveError(self.id, 'Entrada e Saída do Operador'))
+        return not len(self.errorList) > 0
 
 class Filter(Operator):
     def validate(self):
@@ -128,12 +147,27 @@ class SumGroup(Operator):
             self.errorList.append(IntuitiveError(self.id, 'Atributo do Operador'))
             return False
 
+def indent(elem, level=0):
+    i = "\n" + level*"  "
+    if len(elem):
+        if not elem.text or not elem.text.strip():
+            elem.text = i + "  "
+        if not elem.tail or not elem.tail.strip():
+            elem.tail = i
+        for elem in elem:
+            indent(elem, level+1)
+        if not elem.tail or not elem.tail.strip():
+            elem.tail = i
+    else:
+        if level and (not elem.tail or not elem.tail.strip()):
+            elem.tail = i
+
 def getIntTypeById(id):
     for operador in operadores:
         if operador.id == id:
             return operador.tipo
 
-def addErrorList():
+def addErrorList(tool):
     uniqueErrorList = []
     for i in globalErrorList:
         skip = False
@@ -146,28 +180,50 @@ def addErrorList():
             uniqueErrorList.append(i)
 
     tree = ET.parse(MODIFIED_FILENAME)
-    treeRoot = tree.getroot()[0]
-    errorList = ET.Element('mxCell')
-    errorList.set('id', 'x')
-    errorList.set('style', 'rounded=0;whiteSpace=wrap;html=1;align=left;')
-    errorList.set('parent', '1')
-    errorList.set('vertex', '1')
+    if tool == 'drawio':
+        treeRoot = tree.getroot()[0]
+        errorList = ET.Element('mxCell')
+        errorList.set('id', 'x')
+        errorList.set('style', 'rounded=0;whiteSpace=wrap;html=1;align=left;')
+        errorList.set('parent', '1')
+        errorList.set('vertex', '1')
 
-    geometry = ET.SubElement(errorList, 'mxGeometry')
-    geometry.set('x', '10')
-    geometry.set('y', '20')
-    geometry.set('width', '300')
-    geometry.set('height', f'{50+50*len(uniqueErrorList)}')
-    geometry.set('as', 'geometry')
-    message = '<b><font style="font-size: 15px">Erros:</font></b><br><br>'
-    for error in uniqueErrorList:
-        if error.errorType == 'Condição Relacionamento':
-            message += f'Erro na condição do relacionamento entre os operadores {getIntTypeById(error.idOpSource)} (id: {error.idOpSource}) e {getIntTypeById(error.idOpTarget)} (id: {error.idOpTarget})<br><br>'
-        else:
-            message += f'Erro {error.errorType} no operador {getIntTypeById(error.id)} (id:{error.id})<br><br>'
-    errorList.set('value', message)
-    treeRoot.append(errorList)
-    tree.write(MODIFIED_FILENAME)
+        geometry = ET.SubElement(errorList, 'mxGeometry')
+        geometry.set('x', '10')
+        geometry.set('y', '20')
+        geometry.set('width', '300')
+        geometry.set('height', f'{50+50*len(uniqueErrorList)}')
+        geometry.set('as', 'geometry')
+        message = '<b><font style="font-size: 15px">Erros:</font></b><br><br>'
+        for error in uniqueErrorList:
+            if error.errorType == 'Condição Relacionamento':
+                message += f'Erro na condição do relacionamento entre os operadores {getIntTypeById(error.idOpSource)} (id: {error.idOpSource}) e {getIntTypeById(error.idOpTarget)} (id: {error.idOpTarget})<br><br>'
+            else:
+                message += f'Erro {error.errorType} no operador {getIntTypeById(error.id)} (id:{error.id})<br><br>'
+        errorList.set('value', message)
+        treeRoot.append(errorList)
+        tree.write(MODIFIED_FILENAME)
+    elif tool == 'orange3':
+
+        treeRoot = tree.getroot()[2] #Annotations
+        #<text font-family="Ubuntu" font-size="16" id="0" rect="(102.0, 514.0, 150.0, 26.0)" type="text/plain" />
+        errorList = ET.Element('text')
+        errorList.set('font-family','Ubuntu')
+        errorList.set('font-size','16')
+        errorList.set('id','0')
+        errorList.set('rect','(102.0, 514.0, 150.0, 26.0)')
+        errorList.set('type', 'text/html')
+        message = '<b><font style="font-size: 15px">Erros:</font></b><br><br>'
+        for error in uniqueErrorList:
+            if error.errorType == 'Condição Relacionamento':
+                message += f'Erro na condição do relacionamento entre os operadores {getIntTypeById(error.idOpSource)} (id: {error.idOpSource}) e {getIntTypeById(error.idOpTarget)} (id: {error.idOpTarget})<br><br>'
+            else:
+                message += f'Erro {error.errorType} no operador {getIntTypeById(error.id)} (id:{error.id})<br><br>'
+        errorList.text = message
+        indent(treeRoot)
+        treeRoot.append(errorList)
+        tree.write(MODIFIED_FILENAME, xml_declaration=True, encoding='utf-8')
+
 
 def create_objects(objects,connections,tool):
     if tool == 'orange3':
@@ -212,6 +268,9 @@ def readXML_orange3(filename):
     connections = []
     connections_ids = {'id':[], 'source':[], 'target':[]}
     values_ids = {'id':[],'value':[]}
+    values_ids_att_group = {'id':[],'value':[]}
+    values_ids_att_soma = {'id':[],'value':[]}
+    values_ids = {'id':[],'value':[]}
     tree = ET.parse(filename)
     nodes = tree.getroot()[0]
     links = tree.getroot()[1]
@@ -232,6 +291,12 @@ def readXML_orange3(filename):
             if 'filter' in properties_text:
                 values_ids['id'].append(properties.attrib['node_id'])
                 values_ids['value'].append(properties_text['filter'])
+            if 'AtributoAgrupamento' in properties_text and properties_text['AtributoAgrupamento'] != '':
+                values_ids_att_group['id'].append(properties.attrib['node_id'])
+                values_ids_att_group['value'].append(properties_text['AtributoAgrupamento'])
+            if 'AtributoSoma' in properties_text and properties_text['AtributoSoma'] != '':
+                values_ids_att_soma['id'].append(properties.attrib['node_id'])
+                values_ids_att_soma['value'].append(properties_text['AtributoSoma'])
 
     for node in nodes:
         if node.tag in ('node'):
@@ -241,12 +306,21 @@ def readXML_orange3(filename):
                     parametros_node[key] = node.attrib[key]
             node.attrib['saidas'] = []
             node.attrib['entradas'] = []
-            node.attrib['parametros'] = parametros_node
-            objects.append(node)
+            #objects.append(node)
         if node.attrib['id'] in values_ids['id']:
             index = (list(values_ids['id']).index(node.attrib['id']))
             value = values_ids['value'][index]
-            node.attrib['value'] = value
+            parametros_node['value'] = value
+        if node.attrib['id'] in values_ids_att_group['id']:
+            index = (list(values_ids_att_group['id']).index(node.attrib['id']))
+            value = values_ids_att_group['value'][index]
+            parametros_node['AtributoAgrupamento'] = value
+        if node.attrib['id'] in values_ids_att_soma['id']:
+            index = (list(values_ids_att_soma['id']).index(node.attrib['id']))
+            value = values_ids_att_soma['value'][index]
+            parametros_node['AtributoSoma'] = value
+        node.attrib['parametros'] = parametros_node
+        objects.append(node)
         if node.attrib['id'] in connections_ids['id']:
             index = (list(connections_ids['id']).index(node.attrib['id']))
             source = connections_ids['source'][index]
@@ -257,6 +331,8 @@ def readXML_orange3(filename):
 
     create_objects(objects,connections,'orange3')
 
+
+
 @argh.arg('-f', '--file', type=str )
 def drawio (file = ''):
     global MODIFIED_FILENAME
@@ -265,24 +341,19 @@ def drawio (file = ''):
     for operador in operadores:
         operador.validate()
         for error in operador.errorList:
-            error.markXML_drawio()
-    addErrorList()
+            error.markXML('drawio')
+    addErrorList('drawio')
 
 @argh.arg('-f', '--file', type=str)
 def orange3(file = ''):
     global MODIFIED_FILENAME
-    MODIFIED_FILENAME = f'{os.path.splitext(file)[0]}_modified.xml'
+    MODIFIED_FILENAME = f'{os.path.splitext(file)[0]}_modified.ows'
     readXML_orange3(file)
     for operador in operadores:
-        print(operador.id,operador.validate(),operador.parametros)
-        for entrada in operador.entradas:
-            print(entrada.condicao)
-        for saida in operador.saidas:
-            print(saida.condicao)
-
-        # for error in operador.errorList:
-            # error.markXML()
-    # addErrorList()
+        operador.validate()
+        for error in operador.errorList:
+            error.markXML('orange3')
+    addErrorList('orange3')
 
 parser = argh.ArghParser()
 parser.add_commands([drawio, orange3])
