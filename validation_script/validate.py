@@ -59,7 +59,7 @@ class Relationship:
 
     def validarCondicao(self):
         self.substituiSimbolos()
-        return arith_expr.runTests(self.condicao, printResults = False)[0] and self.target is not None
+        return arith_expr.runTests(self.condicao, printResults = False)[0] and self.target is not None and (self.condicao == '' or len(self.condicao.split(' '))>1)
 
 class Operator:
     def __init__(self, id, parametros, tipo, entradas, saidas, tool):
