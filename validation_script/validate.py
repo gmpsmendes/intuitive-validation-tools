@@ -59,7 +59,7 @@ class Relationship:
 
     def validarCondicao(self):
         self.substituiSimbolos()
-        return arith_expr.runTests(self.condicao, printResults = False)[0] and self.target is not None and (self.condicao == '' or len(self.condicao.split(' '))>1)
+        return arith_expr.runTests(self.condicao, printResults = False)[0] and self.target is not None and len(self.condicao.split(' '))>1
 
 class Operator:
     def __init__(self, id, parametros, tipo, entradas, saidas, tool, title = None):
@@ -107,15 +107,7 @@ class FailDataSet(OperadorArmazenamento):
 
 class FilterOrange3(Operator):
     def validate(self):
-        if len(self.entradas) == 1 and len (self.saidas) >=1:
-            return True
-        else:
-            self.errorList.append(IntuitiveError(self.id, 'Entrada do Operador e Saída do Operador'))
-            return False
-
-class FilterConditionOrange3(Operator):
-    def validate(self):
-        if len(self.entradas) == 1 and len(self.saidas) == 1:
+        if len(self.entradas) == 1 and len(self.saidas) >= 1:
             for saida in self.saidas:
                 if not saida.validarCondicao():
                     self.errorList.append(IntuitiveError(saida.id, 'Condição Relacionamento', saida.source, saida.target))
@@ -271,7 +263,7 @@ def readXML_drawio(filename):
 def readXML_orange3(filename):
     objects = []
     connections = []
-    connections_ids = {'id':[], 'source':[], 'target':[]}
+    connections_ids = {'id':[], 'source':[], 'target':[], 'value':[]}
     values_ids = {'id':[],'value':[]}
     values_ids_att_group = {'id':[],'value':[]}
     values_ids_att_soma = {'id':[],'value':[]}
@@ -283,19 +275,32 @@ def readXML_orange3(filename):
 
     tree.write(MODIFIED_FILENAME)
 
+    properties_text = {}    
     for link in links:
         if 'source_node_id' in link.attrib:
             connections_ids['id'].append(link.attrib['id'])
             connections_ids['source'].append(link.attrib['source_node_id'])
             connections_ids['target'].append(link.attrib['sink_node_id'])
+            for properties in node_properties:
+                if link.attrib['source_channel'] in properties.text:
+                    value = link.attrib['source_channel']
+                    properties_text = ast.literal_eval(properties.text)
+                    connections_ids['value'].append(properties_text[value])
+                elif link.attrib['source_channel'] in ('DataWarehouse', 'DataMart', 'DataLake', 'DataSet', 'TempDataSet', 'FailDataSet'):
+                    connections_ids['value'].append('')
+
 
     properties_text = {}
     for properties in node_properties:
         if properties.text[0] == '{':
             properties_text = ast.literal_eval(properties.text)
-            if 'filter' in properties_text:
+            if 'Filter1' in properties_text:
                 values_ids['id'].append(properties.attrib['node_id'])
-                values_ids['value'].append(properties_text['filter'])
+                values_ids['value'].append([properties_text['Filter1'],
+                properties_text['Filter2'],
+                properties_text['Filter3'],
+                properties_text['Filter4'],
+                properties_text['Filter5']])
             if 'AtributoAgrupamento' in properties_text and properties_text['AtributoAgrupamento'] != '':
                 values_ids_att_group['id'].append(properties.attrib['node_id'])
                 values_ids_att_group['value'].append(properties_text['AtributoAgrupamento'])
@@ -330,10 +335,11 @@ def readXML_orange3(filename):
             index = (list(connections_ids['id']).index(node.attrib['id']))
             source = connections_ids['source'][index]
             target = connections_ids['target'][index]
+            value = connections_ids['value'][index]
             node.attrib['source'] = source
             node.attrib['target'] = target
+            node.attrib['value'] = value
             connections.append(node)
-
     create_objects(objects,connections,'orange3')
 
 
