@@ -17,7 +17,7 @@ arith_expr = infixNotation(integer | varname,
     ])
 
 operatorTypes_drawio = ['DataWarehouse', 'DataMart', 'DataLake', 'DataSet', 'TempDataSet', 'FailDataSet', 'Filter', 'SumGroup']
-operatorTypes_orange3 = operatorTypes_drawio + ['FilterOrange3','FilterConditionOrange3']
+operatorTypes_orange3 = operatorTypes_drawio
 operadores = []
 
 
@@ -105,28 +105,16 @@ class TempDataSet(OperadorArmazenamento):
 class FailDataSet(OperadorArmazenamento):
     pass
 
-class FilterOrange3(Operator):
-    def validate(self):
-        if len(self.entradas) == 1 and len(self.saidas) >= 1:
-            for saida in self.saidas:
-                if not saida.validarCondicao():
-                    self.errorList.append(IntuitiveError(saida.id, 'Condição Relacionamento', saida.source, saida.target))
-            for entrada in self.entradas:
-                if not entrada.validarCondicao():
-                    self.errorList.append(IntuitiveError(entrada.id, 'Condição Relacionamento', entrada.source, entrada.target))
-        else:
-            self.errorList.append(IntuitiveError(self.id, 'Entrada e Saída do Operador'))
-        return not len(self.errorList) > 0
-
 class Filter(Operator):
     def validate(self):
         if len(self.entradas) == 1 and len(self.saidas) >= 1:
             for saida in self.saidas:
                 if not saida.validarCondicao():
                     self.errorList.append(IntuitiveError(saida.id, 'Condição Relacionamento', saida.source, saida.target))
-            for entrada in self.entradas:
-                if not entrada.validarCondicao():
-                    self.errorList.append(IntuitiveError(entrada.id, 'Condição Relacionamento', entrada.source, entrada.target))
+            if self.tool != 'orange3':
+                for entrada in self.entradas:
+                    if not entrada.validarCondicao():
+                        self.errorList.append(IntuitiveError(entrada.id, 'Condição Relacionamento', entrada.source, entrada.target))
         else:
             self.errorList.append(IntuitiveError(self.id, 'Entrada e Saída do Operador'))
         return not len(self.errorList) > 0
@@ -275,20 +263,22 @@ def readXML_orange3(filename):
 
     tree.write(MODIFIED_FILENAME)
 
-    properties_text = {}    
+    properties_text = {}
     for link in links:
         if 'source_node_id' in link.attrib:
-            connections_ids['id'].append(link.attrib['id'])
-            connections_ids['source'].append(link.attrib['source_node_id'])
-            connections_ids['target'].append(link.attrib['sink_node_id'])
             for properties in node_properties:
                 if link.attrib['source_channel'] in properties.text:
+                    connections_ids['id'].append(link.attrib['id'])
+                    connections_ids['source'].append(link.attrib['source_node_id'])
+                    connections_ids['target'].append(link.attrib['sink_node_id'])
                     value = link.attrib['source_channel']
                     properties_text = ast.literal_eval(properties.text)
                     connections_ids['value'].append(properties_text[value])
-                elif link.attrib['source_channel'] in ('DataWarehouse', 'DataMart', 'DataLake', 'DataSet', 'TempDataSet', 'FailDataSet'):
-                    connections_ids['value'].append('')
-
+            if link.attrib['id'] not in connections_ids['id']:
+                connections_ids['id'].append(link.attrib['id'])
+                connections_ids['source'].append(link.attrib['source_node_id'])
+                connections_ids['target'].append(link.attrib['sink_node_id'])
+                connections_ids['value'].append('')
 
     properties_text = {}
     for properties in node_properties:
@@ -340,6 +330,7 @@ def readXML_orange3(filename):
             node.attrib['target'] = target
             node.attrib['value'] = value
             connections.append(node)
+
     create_objects(objects,connections,'orange3')
 
 
